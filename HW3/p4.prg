@@ -1,0 +1,1 @@
+select p.* from product p where p.id not in (select sd.product_id from sale_detail sd group by sd.product_id) into table p4

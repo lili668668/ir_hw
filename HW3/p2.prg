@@ -1,0 +1,1 @@
+select sd.sales_id ,sd.month , sum(sd.amount) as month_total from sale_detail sd group by sd.sales_id, sd.month into table p2
