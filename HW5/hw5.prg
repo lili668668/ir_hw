@@ -22,11 +22,12 @@ do while not eof()
 	data = content
 	sentId = 1
 	select 1
+	dataTrans = posAndType(data)
 	do while dataTrans.position != 0
-		dataTrans = posAndType(data)
 		send(docId, sentId, preCut(data, dataTrans))
 		data  = lastCut(data, dataTrans)
 		sentId = sentId + 1
+		dataTrans = posAndType(data)
 	enddo
 	if len(data) != 0
 		send(docId, sentId, data)
