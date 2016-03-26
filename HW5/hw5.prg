@@ -36,20 +36,20 @@ do while not eof()
 	skip
 enddo
 
-* 傳送位置與型態
+* 傳送位置與斷點字長度
 define class trans as custom
 	position = 0
-	word = ''
+	length = 0
 enddefine
 
 * 回傳斷點前半段
 function preCut(str, trans)
-        return left(str, trans.position + len(trans.word) - 1)
+		return left(str, trans.position + trans.length - 1)
 endfunc
 
 * 回傳斷點後半段
 function lastCut(str, trans)
-        return right(str, len(str) - trans.position - len(trans.word) + 1)
+		return right(str, len(str) - trans.position - trans.length + 1)
 endfunc
 
 * 回傳位置與型態
@@ -59,10 +59,10 @@ function posAndType(str)
 		num = at(keyWord(cnt), str)
 		if num > 0 and (ob.position == 0 or num < ob.position)
                         ob.position = num
-                        if substr(str, num+len(keyWord(cnt)), len("」")) == "」"
-                                ob.word = keyWord(cnt) + "」"
+                        if substr(str, num + 2, 2) == "」"
+                                ob.length = 4
                         else
-                                ob.word = keyWord(cnt)
+                                ob.length = 2
                         endif
 		endif
 	endfor
