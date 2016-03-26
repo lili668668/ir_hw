@@ -1,2 +1,4 @@
 #Vim cache
 *.swp
+#rar
+*.rar
