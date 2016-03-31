@@ -8,70 +8,48 @@ close all
 create table sentence (doc_id int, sent_id int, content memo)
 
 * 斷點
-dimension keyWord(6)
+dimension keyWord(3)
 keyWord(1) = "。"
 keyWord(2) = "！"
 keyWord(3) = "？"
-keyWord(4) = "。」"
-keyWord(5) = "！」"
-keyWord(6) = "？」"
 
+* 主程式
 select 2
 use header
 
-* 主程式
 do while not eof()
 	docId = doc_id
 	data = content
 	sentId = 1
 	select 1
-	do while isEnd(data) != 0
-		dataTrans = posAndType(data)
+	dataTrans = posAndType(data)
+	do while dataTrans.position != 0
 		send(docId, sentId, preCut(data, dataTrans))
 		data  = lastCut(data, dataTrans)
-		* ? docId
 		sentId = sentId + 1
+		dataTrans = posAndType(data)
 	enddo
 	if len(data) != 0
-		send(docId, sentId, right(data, len(data)))
+		send(docId, sentId, data)
 	endif
 	select 2
 	skip
 enddo
 
-* 傳送位置與型態
+* 傳送位置與斷點字長度
 define class trans as custom
 	position = 0
-	type = 0
+	length = 0
 enddefine
-
-* 是否結束
-function isEnd(str)
-	flag = 0
-	for cnt = 1 to 6
-		if at(keyWord(cnt), str) > 0
-			flag = 1
-		endif
-	endfor
-	return flag
-endfunc
 
 * 回傳斷點前半段
 function preCut(str, trans)
-	if trans.type > 3
-		return left(str, trans.position + 3)
-	else
-		return left(str, trans.position + 1)
-	endif
+		return left(str, trans.position + trans.length - 1)
 endfunc
 
 * 回傳斷點後半段
 function lastCut(str, trans)
-	if trans.type > 3
-		return right(str, len(str) - trans.position - 3)
-	else
-		return right(str, len(str) - trans.position - 1)
-	endif
+		return right(str, len(str) - trans.position - trans.length + 1)
 endfunc
 
 * 回傳位置與型態
@@ -79,15 +57,13 @@ function posAndType(str)
 	ob = createobject("trans")
 	for cnt = 1 to 3
 		num = at(keyWord(cnt), str)
-		if num > 0
-			if ob.position == 0 or num < ob.position
-				ob.position = num
-				if num == at(keyWord(cnt + 3), str)
-					ob.type = cnt + 3
-				else
-					ob.type = cnt
-				endif				
-			endif
+		if num > 0 and (ob.position == 0 or num < ob.position)
+                        ob.position = num
+                        if substr(str, num + 2, 2) == "」"
+                                ob.length = 4
+                        else
+                                ob.length = 2
+                        endif
 		endif
 	endfor
 	return ob
