@@ -8,14 +8,13 @@ create table alphanum(doc_id I, sent_id I, wd_id I, word M)
 select 3
 use sentence
 
-data = ''
 do while not eof()
     did = doc_id
     sid = sent_id
     wid = 1
     data = content
     strlen = lenc(data)
-    flag = 0 && 0:ch 1:alpha
+    flag = 0 && 0:chinese, 1:alphanum
     merge = ''
     for i = 1 to strlen
         ch = substrc(data, i, 1)
