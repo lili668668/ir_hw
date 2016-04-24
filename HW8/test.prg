@@ -1,6 +1,7 @@
 * init
 set safety off
 use bigram
+use header
 
 * main
 query_and('全球暖化', '氣候變遷')
@@ -14,14 +15,16 @@ return
 function query_and(termA, termB)
     query(termA)
     query(termB)
-    select a.* from (termA) as a inner join (termB) as b on (a.doc_id == b.doc_id) into table (termA+'and'+termB)
+    select a.* from (termA) as a inner join (termB) as b on (a.doc_id == b.doc_id) into cursor (termA+'and'+termB)
+    output(termA+'and'+termB)
 endfunc
 
 * or query
 function query_or(termA, termB)
     query(termA)
     query(termB)
-    select * from (termA) union select * from (termB) into table (termA+'or'+termB)
+    select * from (termA) union select * from (termB) into cursor (termA+'or'+termB)
+    output(termA+'or'+termB)
 endfunc
 
 * term query
@@ -32,4 +35,9 @@ function query(term)
         select result.* from result inner join temp on (result.doc_id == temp.doc_id and result.sent_id == temp.sent_id and result.wd_id == temp.wd_id) into cursor result
     endfor
     select distinct doc_id from result into cursor (term)
+endfunc
+
+* output result
+function output(query_name)
+    select header.* from header, (query_name) as result where header.doc_id == result.doc_id into table (query_name)
 endfunc
