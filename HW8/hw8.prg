@@ -4,11 +4,11 @@ use bigram
 use header
 
 * main
-output(query_and(query_and('å…¨çƒæš–åŒ–', 'æ°£å€™è®Šé·'), 'ç¯€èƒ½æ¸›ç¢³'))
-output(query_or('æ–°èˆˆå¸‚å ´', 'é‡‘ç£šå››åœ‹'))
-output(query_and(query_and('æ–°è—¥', 'ç”ŸæŠ€'), 'ç ”ç™¼'))
-output(query_and(query_and('é‡‘èæµ·å˜¯', 'é¢¨æš´'), 'å±æ©Ÿ'))
-output(query_or('åœ‹å®‰åŸºé‡‘', 'è­·ç›¤'))
+output(query_and(query_and('¥ş²y·x¤Æ', '®ğ­ÔÅÜ¾E'), '¸`¯à´îºÒ'))
+output(query_or('·s¿³¥«³õ', 'ª÷¿j¥|°ê'))
+output(query_and(query_and('·sÃÄ', '¥Í§Ş'), '¬ãµo'))
+output(query_and(query_and('ª÷¿Ä®ü¼S', '­·¼É'), '¦M¾÷'))
+output(query_or('°ê¦w°òª÷', 'Å@½L'))
 
 * exit
 close all
