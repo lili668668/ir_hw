@@ -21,15 +21,7 @@ function parse(query)
     do while lenc(query) > 0
         operator = get_operator(@query)
         term = get_term(@query)
-        do case
-            case operator == 'and'
-                result = query_and(result, term)
-            case operator == 'or'
-                result = query_or(result, term)
-            otherwise
-                ? 'Invalid query'
-                return ''
-        endcase
+        result = merge(result, term, operator)
     enddo
     output(result)
 
@@ -63,20 +55,20 @@ function parse(query)
     endfunc
 endfunc
 
-* and query
-function query_and(termA, termB)
+* merge result
+function merge(termA, termB, operator)
     term_query(termA)
     term_query(termB)
-    select a.* from (termA) as a inner join (termB) as b on (a.doc_id == b.doc_id) into cursor (termA+'and'+termB)
-    return termA+'and'+termB
-endfunc
-
-* or query
-function query_or(termA, termB)
-    term_query(termA)
-    term_query(termB)
-    select * from (termA) union select * from (termB) into cursor (termA+'or'+termB)
-    return termA+'or'+termB
+    result = termA + operator + termB
+    do case
+        case operator == 'and'
+            select a.* from (termA) as a inner join (termB) as b on (a.doc_id == b.doc_id) into cursor (result)
+        case operator == 'or'
+            select * from (termA) union select * from (termB) into cursor (result)
+        otherwise
+            ? 'Invalid operator'
+    endcase
+    return result
 endfunc
 
 * term query
