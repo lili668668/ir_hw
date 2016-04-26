@@ -4,15 +4,31 @@ use bigram
 use header
 
 * main
-parse('全球暖化 and 氣候變遷 and 節能減碳')
-parse('新興市場 or 金磚四國')
-parse('新藥 and 生技 and 研發')
-parse('金融海嘯 and 風暴 and 危機')
-parse('國安基金 or 護盤')
+qp = createobject('query_processor')
+qp.search('全球暖化 and 氣候變遷 and 節能減碳')
+qp.search('新興市場 or 金磚四國')
+qp.search('新藥 and 生技 and 研發')
+qp.search('金融海嘯 and 風暴 and 危機')
+qp.search('國安基金 or 護盤')
 
 * exit
 close all
 return
+
+* query processor
+define class query_processor as custom
+    counter = 0
+
+    function search(query)
+        this.counter = this.counter + 1
+        result = parse(query)
+        this.output(result)
+    endfunc
+
+    function output(result)
+        select header.* from header, (result) as result where header.doc_id == result.doc_id into table ('query_' + alltrim(str(this.counter)))
+    endfunc
+enddefine
 
 * query parser
 function parse(query)
@@ -22,36 +38,36 @@ function parse(query)
         next_result = term_query(get_term(@query))
         result = merge(result, next_result, operator)
     enddo
-    output(result)
+    return result
+endfunc
 
-    function get_term(query)
-        flag_and = atcc('AND', query)
-        flag_or = atcc('OR', query)
-        do case
-            case flag_and == 0 and flag_or == 0
-                flag = lenc(query)
-            case flag_and != 0 and flag_or != 0
-                flag = min(flag_and, flag_or) - 1
-            otherwise
-                flag = max(flag_and, flag_or) - 1
-        endcase
-        term = alltrim(leftc(query, flag))
-        query = rightc(query, lenc(query)-flag)
-        return term
-    endfunc
+function get_term(query)
+    flag_and = atcc('AND', query)
+    flag_or = atcc('OR', query)
+    do case
+        case flag_and == 0 and flag_or == 0
+            flag = lenc(query)
+        case flag_and != 0 and flag_or != 0
+            flag = min(flag_and, flag_or) - 1
+        otherwise
+            flag = max(flag_and, flag_or) - 1
+    endcase
+    term = alltrim(leftc(query, flag))
+    query = rightc(query, lenc(query)-flag)
+    return term
+endfunc
 
-    function get_operator(query)
-        do case
-            case atcc('AND', query) == 1
-                operator = 'AND'
-            case atcc('OR', query) == 1
-                operator = 'OR'
-            otherwise
-                operator = ''
-        endcase
-        query = rightc(query, lenc(query) - lenc(operator))
-        return operator
-    endfunc
+function get_operator(query)
+    do case
+        case atcc('AND', query) == 1
+            operator = 'AND'
+        case atcc('OR', query) == 1
+            operator = 'OR'
+        otherwise
+            operator = ''
+    endcase
+    query = rightc(query, lenc(query) - lenc(operator))
+    return operator
 endfunc
 
 * merge result
@@ -79,9 +95,4 @@ function term_query(term)
         select distinct doc_id from result into cursor (term)
     endif
     return term
-endfunc
-
-* output result
-function output(query_name)
-    select header.* from header, (query_name) as result where header.doc_id == result.doc_id into table (query_name)
 endfunc
