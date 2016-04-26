@@ -26,8 +26,8 @@ function parse(query)
     output(result)
 
     function get_term(query)
-        flag_and = at_c('and', query)
-        flag_or = at_c('or', query)
+        flag_and = atcc('AND', query)
+        flag_or = atcc('OR', query)
         do case
             case flag_and == 0 and flag_or == 0
                 flag = lenc(query)
@@ -43,10 +43,10 @@ function parse(query)
 
     function get_operator(query)
         do case
-            case at_c('and', query) == 1
-                operator = 'and'
-            case at_c('or', query) == 1
-                operator = 'or'
+            case atcc('AND', query) == 1
+                operator = 'AND'
+            case atcc('OR', query) == 1
+                operator = 'OR'
             otherwise
                 operator = ''
         endcase
@@ -61,9 +61,9 @@ function merge(termA, termB, operator)
     term_query(termB)
     result = termA + operator + termB
     do case
-        case operator == 'and'
+        case operator == 'AND'
             select a.* from (termA) as a inner join (termB) as b on (a.doc_id == b.doc_id) into cursor (result)
-        case operator == 'or'
+        case operator == 'OR'
             select * from (termA) union select * from (termB) into cursor (result)
         otherwise
             ? 'Invalid operator'
