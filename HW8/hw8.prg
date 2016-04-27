@@ -26,7 +26,7 @@ define class query_processor as custom
     endfunc
 
     function output(result)
-        select header.* from header, (result) as result where header.doc_id == result.doc_id into table ('query_' + alltrim(str(this.counter)))
+        select header.* ,this.counter as query_id from header, (result) as result where header.doc_id == result.doc_id into table ('query_' + alltrim(str(this.counter)))
     endfunc
 enddefine
 
