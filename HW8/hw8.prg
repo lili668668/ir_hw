@@ -26,19 +26,33 @@ define class query_processor as custom
     endfunc
 
     function output(result)
-        select header.* ,this.counter as query_id from header, (result) as result where header.doc_id == result.doc_id into table ('query_' + alltrim(str(this.counter)))
+        select header.* ,this.counter as query_id, result.hit_term from header, (result) as result where header.doc_id == result.doc_id into table ('query_' + alltrim(str(this.counter)))
     endfunc
 enddefine
 
 * query parser
 function parse(query)
-    result = term_query(get_term(@query))
+    term_counter = 1
+    dimension save_term(term_counter)
+    save_term[term_counter] = get_term(@query)
+    result = term_query(save_term[term_counter])
     do while lenc(query) > 0
         operator = get_operator(@query)
-        next_result = term_query(get_term(@query))
+        term_counter = term_counter + 1
+        dimension save_term(term_counter)
+        save_term[term_counter] = get_term(@query)
+        next_result = term_query(save_term[term_counter])
         result = merge(result, next_result, operator)
     enddo
-    return result
+    result2 = result + '_hitterm'
+    select * from (result) into table (result2)
+    alter table (result2) add hit_term M
+    for i = 1 to term_counter
+        update (result2) set hit_term = hit_term+' '+save_term[i] where doc_id in (select doc_id from (save_term[i]))
+    endfor
+    update (result2) set hit_term = alltrim(hit_term)
+
+    return result2
 endfunc
 
 function get_term(query)
