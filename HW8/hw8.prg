@@ -21,38 +21,38 @@ define class query_processor as custom
 
     function search(query)
         this.counter = this.counter + 1
-        result = parse(query)
-        this.output(result)
+        p_result = parse(query)
+        result = merge_all(p_result)
+        link_header(@result, this.counter)
+        add_hitterm(@result, p_result)
     endfunc
+enddefine
 
-    function output(result)
-        select header.* ,this.counter as query_id, result.hit_term from header, (result) as result where header.doc_id == result.doc_id into table ('query_' + alltrim(str(this.counter)))
+* parse result
+define class parse_result as custom
+    counter = 0
+    dimension terms(1)
+    dimension operators(1)
+
+    function append(term, operator)
+        this.counter = this.counter + 1
+        dimension this.terms(this.counter)
+        dimension this.operators(this.counter)
+        this.terms[this.counter] = term
+        this.operators[this.counter] = operator
     endfunc
 enddefine
 
 * query parser
 function parse(query)
-    term_counter = 1
-    dimension save_term(term_counter)
-    save_term[term_counter] = get_term(@query)
-    result = term_query(save_term[term_counter])
+    result = createobject('parse_result')
+    result.append(get_term(@query), '')
     do while lenc(query) > 0
         operator = get_operator(@query)
-        term_counter = term_counter + 1
-        dimension save_term(term_counter)
-        save_term[term_counter] = get_term(@query)
-        next_result = term_query(save_term[term_counter])
-        result = merge(result, next_result, operator)
+        term = get_term(@query)
+        result.append(term, operator)
     enddo
-    result2 = result + '_hitterm'
-    select * from (result) into table (result2)
-    alter table (result2) add hit_term M
-    for i = 1 to term_counter
-        update (result2) set hit_term = hit_term+' '+save_term[i] where doc_id in (select doc_id from (save_term[i]))
-    endfor
-    update (result2) set hit_term = alltrim(hit_term)
-
-    return result2
+    return result
 endfunc
 
 function get_term(query)
@@ -85,6 +85,15 @@ function get_operator(query)
 endfunc
 
 * merge result
+function merge_all(p_result)
+    result = term_query(p_result.terms[1])
+    for i = 2 to p_result.counter
+        next_result = term_query(p_result.terms[i])
+        result = merge(result, next_result, p_result.operators[i])
+    endfor
+    return result
+endfunc
+
 function merge(resultA, resultB, operator)
     result = resultA + operator + resultB
     do case
@@ -102,11 +111,27 @@ endfunc
 function term_query(term)
     if not used(term)
         select doc_id, sent_id, wd_id-1 as wd_id from bigram where bigram.bigram == substrc(term, 1, 2) into cursor result
-        for i = 2 to lenc(term)-1
-            select doc_id, sent_id, wd_id-i as wd_id from bigram where bigram.bigram == substrc(term, i, 2) into cursor temp
+        for j = 2 to lenc(term)-1
+            select doc_id, sent_id, wd_id-j as wd_id from bigram where bigram.bigram == substrc(term, j, 2) into cursor temp
             select result.* from result inner join temp on (result.doc_id == temp.doc_id and result.sent_id == temp.sent_id and result.wd_id == temp.wd_id) into cursor result
         endfor
         select distinct doc_id from result into cursor (term)
     endif
     return term
+endfunc
+
+* link header
+function link_header(result, counter)
+    new_result = 'query_' + alltrim(str(counter))
+    select header.* ,counter as query_id from header, (result) as result where header.doc_id == result.doc_id into table (new_result)
+    result = new_result
+endfunc
+
+* add hit_term
+function add_hitterm(result, p_result)
+    alter table (result) add hit_term M
+    for i = 1 to p_result.counter
+        update (result) set hit_term = hit_term+' '+p_result.terms[i] where doc_id in (select doc_id from (p_result.terms[i]))
+    endfor
+    update (result) set hit_term = alltrim(hit_term)
 endfunc
