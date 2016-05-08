@@ -1,3 +1,6 @@
+* 資二B 洪慈吟
+* 法五B 陳冠群
+
 * init
 set safety off
 
