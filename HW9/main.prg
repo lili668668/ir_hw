@@ -20,14 +20,15 @@ select doc_id, sqrt(sum(tfidf * tfidf)) as leng from tfidf group by doc_id into 
 
 * query_length
 create table Qlength (query_id I, leng F)
+flag_query = 0
 
 * main
 qp = createobject('query_processor')
-qp.search('å…¨çƒæš–åŒ– æ°£å€™è®Šé· ç¯€èƒ½æ¸›ç¢³')
-qp.search('æ–°èˆˆå¸‚å ´ é‡‘ç£šå››åœ‹')
-qp.search('æ–°è—¥ ç”ŸæŠ€ ç ”ç™¼')
-qp.search('é‡‘èžæµ·å˜¯ é¢¨æš´ å±æ©Ÿ')
-qp.search('åœ‹å®‰åŸºé‡‘ è­·ç›¤')
+qp.search('¥þ²y·x¤Æ ®ð­ÔÅÜ¾E ¸`¯à´îºÒ')
+qp.search('·s¿³¥«³õ ª÷¿j¥|°ê')
+qp.search('·sÃÄ ¥Í§Þ ¬ãµo')
+qp.search('ª÷¿Ä®ü¼S ­·¼É ¦M¾÷')
+qp.search('°ê¦w°òª÷ Å@½L')
 
 * query processor
 define class query_processor as custom
@@ -35,30 +36,35 @@ define class query_processor as custom
 
     function search(query)
         this.counter = this.counter + 1
-        
-		query_leng(counter, get_query_terms(@query))
-		result = cos_sim(counter)
-		select *, recno() as rank from (result) order by score desc into table (result)
+		query_leng(this.counter, get_query_terms(@query))
+		cos_sim(this.counter)
     endfunc
 enddefine
 
-* terms
-defind class array as custom
+* implement stack
+define class stack as custom
 	size = 0
-	dimension terms(1)
+	dimension stack(1)
 
-	function add(term)
+	function push(element)
 		this.size = this.size + 1
-		dimension terms(this.size)
-		this.terms[this.size] = term
+		dimension this.stack(this.size)
+		this.stack[this.size] = element
 	endfunc
-enddfind
+	
+	function pop()
+		element = this.stack[this.size]
+		this.size = this.size - 1
+		return element
+	endfunc
+	
+enddefine
 
 * get query term
 function get_query_terms(query)
-	terms = createobject('array')
+	terms = createobject('stack')
 	do while lenc(query) > 0
-		terms.add(split(@query, ' '))
+		terms.push(split(@query, ' '))
 	enddo
 	return terms
 endfunc
@@ -71,7 +77,7 @@ function split(data, sep)
 		temp = left(data, flag-1)
 		data = right(data, len(data) - (flag+len(sep)-1))
 	else
-		tmp = data
+		temp = data
 		data = ''
 	endif
 	
@@ -83,26 +89,48 @@ function query_leng(id, terms)
 
 	table_name = 'tfidf_query_' + alltrim(str(id))
 	create table (table_name) (bigram C(4), tfidf F)
+	flag = 0
 	
-	for cnt = 1 to terms.size
-		for cnt2 = 1 to lenc(terms[cnt])-1
-			insert into (table_name) (bigram, tfidf) select bigram, idf from idf where bigram == substrc(terms[cnt], cnt2, 2)
+	size = terms.size
+	for cnt = 1 to size
+		term = terms.pop()
+		for cnt2 = 1 to lenc(term)-1
+			if flag == 0
+				select bigram, idf as tfidf from idf where bigram == substrc(term, cnt2, 2) into table (table_name)
+				flag = 1
+			else
+				select * from (table_name) into table tmp
+				select bigram, idf as tfidf from idf where bigram == substrc(term, cnt2, 2) union select * from tmp into table (table_name)
+				drop table tmp
+			endif
 		endfor
 	endfor
 	
-	insert into Qlength (leng) select id as query_id, sqrt(sum(tfidf * tfidf)) as leng from (table_name)
-	
-	use Qlength
-	skip id
-	result = Qlength.leng
-	close Qlength
+	if flag_query == 0
+		select id as query_id, sqrt(sum(tfidf * tfidf)) as leng from (table_name) into table Qlength
+		flag_query = 1
+	else
+		select * from Qlength into table tmp
+		select id as query_id, sqrt(sum(tfidf * tfidf)) as leng from (table_name) union select * from tmp into table Qlength
+		drop table tmp
+	endif
 endfunc
 
 * CosSim
 function cos_sim(id)
 	table_name = 'tfidf_query_' + alltrim(str(id))
+	score_table = 'score_' + alltrim(str(id))
 	result = 'result_q' + alltrim(str(id))
-	select header.doc_id, date, t1, t2, t3, edition, content, Qlength.query_id, (sum(q.tfidf * d.tfidf)/(Dlength.leng * Qlength.leng)) as score from (table_name) as q, tfidf as d, Dlength, Qlength, header where Qlength.query_id == id, Dlength.doc_id == d.doc_id, header.doc_id == Dlength.doc_id, q.bigram == d.bigram into cursor (result)
+	
+	select doc_id, (Dlength.leng * Qlength.leng) as pow from Dlength, Qlength where Qlength.query_id == id group by Dlength.doc_id into table tmp
+	select id as query_id, tmp.doc_id, (sum(q.tfidf * d.tfidf)/tmp.pow) as score from (table_name) as q, tfidf as d, tmp where q.bigram == d.bigram and tmp.doc_id == d.doc_id group by tmp.doc_id into table (score_table)
+	select header.doc_id, date, title1, title2, title3, edition, content, id as query_id, score from header, (score_table) as s where s.doc_id == header.doc_id order by score desc into table (result)
+	
+	alter table (result) add rank I
+	use (result)
+	replace all rank with recno()
+	
+	drop table tmp
 	
 	return result
 endfunc
