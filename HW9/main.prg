@@ -126,7 +126,9 @@ function cos_sim(id)
 	result = 'result_q' + alltrim(str(id))
 	
 	select doc_id, (Dlength.leng * Qlength.leng) as pow from Dlength, Qlength where Qlength.query_id == id group by Dlength.doc_id into table tmp
-	select id as query_id, tmp.doc_id, (sum(q.tfidf * d.tfidf)/tmp.pow) as score from (table_name) as q, tfidf as d, tmp where q.bigram == d.bigram and tmp.doc_id == d.doc_id group by tmp.doc_id into table (score_table)
+	select doc_id, sum(q.tfidf * d.tfidf) as sum from (table_name) as q, tfidf as d where q.bigram == d.bigram group by doc_id into table tmp2
+	select id as query_id, tmp.doc_id, (tmp2.sum/tmp.pow) as score from tmp, tmp2 where tmp.doc_id == tmp2.doc_id group by tmp.doc_id into table (score_table)
+	* select id as query_id, tmp.doc_id, (sum(q.tfidf * d.tfidf)/tmp.pow) as score from (table_name) as q, tfidf as d, tmp where q.bigram == d.bigram and tmp.doc_id == d.doc_id group by tmp.doc_id into table (score_table)
 	select header.doc_id, date, title1, title2, title3, edition, content, id as query_id, score from header, (score_table) as s where s.doc_id == header.doc_id order by score desc into table (result)
 	
 	alter table (result) add rank I
@@ -134,7 +136,8 @@ function cos_sim(id)
 	replace all rank with recno()
 	
 	drop table tmp
-	
+	drop table tmp2
+
 	return result
 endfunc
 
