@@ -2,3 +2,10 @@
 *.swp
 #rar
 *.rar
+#FoxPro
+*.DBF
+*.FPT
+*.IDX
+*.FXP
+*.BAK
+*.TBK
