@@ -41,21 +41,22 @@ define class query_processor as custom
             term_merge_weight(p_result.terms[cnt])
         endfor
         
-        
-        result = 'query_' + this.counter
+        result = 'query_' + alltrim(str(this.counter))
         select * from (p_result.terms[1]) into table (result)
         
         for cnt = 2 to p_result.counter
-            sim(result, p_result.terms[cnt],p_result.operator[cnt])
+            sim(result, p_result.terms[cnt],p_result.operators[cnt])
         endfor
+        
+        link_header(result)
     endfunc
 enddefine
 
 * term_merge_weight
 function term_merge_weight(term)
     
-    for cnt = 1 to lenc(term)-1
-        if cnt == 1
+    for cnt2 = 1 to lenc(term)-1
+        if cnt2 == 1
             select doc_id, idf, tfidf from tfidf where bigram == substrc(term, cnt, 2) into table tmp
         else
             select * from tmp into table tmp2
@@ -64,7 +65,7 @@ function term_merge_weight(term)
         endif
     endfor
     
-    select doc_id, 1 - sqrt(sum( (1 - tfidf) * (1 - tfidf) ) / (term - 1) ) as weight from tmp group by doc_id into cursor (term)
+    select doc_id, 1 - sqrt(sum( (1 - tfidf) * (1 - tfidf) ) / (lenc(term)-1) ) as weight from tmp group by doc_id into table (term)
     
     drop table tmp
 endfunc
@@ -75,9 +76,9 @@ function sim(result, term, operator)
 
     do case
         case operator == 'AND'
-            select doc_id, 1 - sqrt( sum( (1 - weight) * (1 - weight) ) ) / 2 ) as weight from tmp group by doc_id into table (result)
+            select doc_id, 1 - sqrt( sum( (1 - weight) * (1 - weight) ) / 2 ) as weight from tmp group by doc_id into table (result)
         case operator == 'OR'
-            select doc_id, sqrt( sum( weight * weight ) ) / 2 ) as weight from tmp group by doc_id into table (result)
+            select doc_id, sqrt( sum( weight * weight ) / 2 ) as weight from tmp group by doc_id into table (result)
         otherwise
             ? 'Invalid operator'
     endcase
@@ -139,4 +140,16 @@ function get_term(query)
     term = alltrim(leftc(query, flag))
     query = rightc(query, lenc(query)-flag)
     return term
+endfunc
+
+* link header
+function link_header(result)
+    select * from (result) into table tmp
+    select header.*, weight from header, tmp where header.doc_id==tmp.doc_id order by tmp.weight desc into table (result)
+    
+    alter table (result) add rank I
+    use (result)
+    replace all rank with recno()
+    
+    drop table tmp
 endfunc
