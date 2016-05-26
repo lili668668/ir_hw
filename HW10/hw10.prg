@@ -5,7 +5,6 @@ set safety off
 select doc_id, count(bigram) as tf, bigram from bigram group by doc_id, bigram into table tf
 select doc_id, bigram, max(tf) as tf from tf group by doc_id into table max_tf
 select tf.doc_id, tf.bigram, tf.tf, (tf.tf/max_tf.tf) as tf_norm where tf.doc_id=max_tf.doc_id from tf, max_tf into table tf_normalize
-
 * df
 select distinct doc_id, bigram from bigram into cursor bigram_tmp
 select count(bigram) as df, bigram from bigram_tmp group by bigram into table df
@@ -13,8 +12,12 @@ select count(bigram) as df, bigram from bigram_tmp group by bigram into table df
 use header
 select df, log(reccount('header')/df)/log(2) as idf, bigram from df into table idf
 
+*idf_norm
+select max(idf) as idf_max from idf into cursor idf_max
+select df, idf/idf_max as idf_norm, bigram from idf, idf_max into table idf_norm
+
 * tfidf
-select doc_id, tf, df, idf, (tf_norm * idf) as tfidf, tf_normalize.bigram, tf_norm from tf_normalize, idf where tf_normalize.bigram=idf.bigram into table tfidf
+select doc_id, tf, df, idf_norm, (tf_norm * idf_norm) as tfidf, tf_normalize.bigram, tf_norm from tf_normalize, idf_norm where tf_normalize.bigram=idf_norm.bigram into table tfidf
 
 * main
 qp = createobject('query_processor')
@@ -57,17 +60,20 @@ function term_merge_weight(term)
     
     for cnt2 = 1 to lenc(term)-1
         if cnt2 == 1
-            select doc_id, idf, tfidf from tfidf where bigram == substrc(term, cnt, 2) into table tmp
+            select doc_id, tfidf from tfidf where bigram == substrc(term, cnt, 2) into table tmp
         else
             select * from tmp into table tmp2
-            select doc_id, idf, tfidf from tfidf where bigram == substrc(term, cnt, 2) union select * from tmp2 into table tmp
+            select doc_id, tfidf from tfidf where bigram == substrc(term, cnt, 2) union select * from tmp2 into table tmp
             drop table tmp2
         endif
     endfor
     
-    select doc_id, 1 - sqrt(sum( (1 - tfidf) * (1 - tfidf) ) / (lenc(term)-1) ) as weight from tmp group by doc_id into table (term)
+    select doc_id, sqrt(sum( (1 - tfidf) * (1 - tfidf) )) as tmp_num from tmp group by doc_id into table tmp2
+    
+    select doc_id, 1 - tmp_num / (lenc(term)-1) as weight from tmp2 group by doc_id into table (term)
     
     drop table tmp
+    drop table tmp2
 endfunc
 
 function sim(result, term, operator)
@@ -76,7 +82,9 @@ function sim(result, term, operator)
 
     do case
         case operator == 'AND'
-            select doc_id, 1 - sqrt( sum( (1 - weight) * (1 - weight) ) / 2 ) as weight from tmp group by doc_id into table (result)
+            select doc_id, sqrt(sum( (1 - weight) * (1 - weight) )) as tmp_num from tmp group by doc_id into table tmp2
+            select doc_id, 1 - tmp_num / 2 as weight from tmp2 group by doc_id into table (result)
+            drop table tmp2
         case operator == 'OR'
             select doc_id, sqrt( sum( weight * weight ) / 2 ) as weight from tmp group by doc_id into table (result)
         otherwise
