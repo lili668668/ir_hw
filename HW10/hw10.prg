@@ -57,13 +57,15 @@ enddefine
 
 * term_merge_weight
 function term_merge_weight(term)
+
+    term_doc_id = term_query(term)
     
     for cnt2 = 1 to lenc(term)-1
         if cnt2 == 1
-            select doc_id, tfidf from tfidf where bigram == substrc(term, cnt, 2) into table tmp
+            select tfidf.doc_id, tfidf from tfidf, (term_doc_id) as t where bigram == substrc(term, cnt, 2) and tfidf.doc_id==t.doc_id into table tmp
         else
             select * from tmp into table tmp2
-            select doc_id, tfidf from tfidf where bigram == substrc(term, cnt, 2) union select * from tmp2 into table tmp
+            select tfidf.doc_id, tfidf from tfidf, (term_doc_id) as t where bigram == substrc(term, cnt, 2) and tfidf.doc_id==t.doc_id union select * from tmp2 into table tmp
             drop table tmp2
         endif
     endfor
@@ -148,6 +150,20 @@ function get_term(query)
     term = alltrim(leftc(query, flag))
     query = rightc(query, lenc(query)-flag)
     return term
+endfunc
+
+* term query
+function term_query(term)
+    name = term + 'tmp'
+    if not used(term)
+        select doc_id, sent_id, wd_id-1 as wd_id from bigram where bigram.bigram == substrc(term, 1, 2) into cursor result
+        for j = 2 to lenc(term)-1
+            select doc_id, sent_id, wd_id-j as wd_id from bigram where bigram.bigram == substrc(term, j, 2) into cursor temp
+            select result.* from result inner join temp on (result.doc_id == temp.doc_id and result.sent_id == temp.sent_id and result.wd_id == temp.wd_id) into cursor result
+        endfor
+        select distinct doc_id from result into cursor (name)
+    endif
+    return name
 endfunc
 
 * link header
